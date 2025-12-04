@@ -9,7 +9,6 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATABASE = os.path.join(BASE_DIR, "users.db") 
 
 def init_db():
-    conn = None
     try:
         conn = sqlite3.connect(DATABASE)
         cur = conn.cursor()
@@ -39,16 +38,13 @@ def check_username():
     if not username:
         return jsonify({"error": "No username provided to check"}), 400
     
-    conn = None
     try:
         conn = get_db()
         cur = conn.cursor()
-        # CRITICAL FIX: Add trailing comma to make it a tuple (username,)
         cur.execute("SELECT 1 FROM users WHERE username = ?", (username,))
         
         exists = cur.fetchone() is not None
         
-        # Return a proper JSON response to the client
         return jsonify({"exists": exists}), 200
         
     except sqlite3.Error as e:
@@ -62,10 +58,9 @@ def check_username():
 @app.route("/register", methods=["POST"])
 def register():
     data = request.get_json()
+
     username = data.get("username")
     password = data.get("password")
-
-    conn = None
     
     if not username or not password:
         return jsonify({"error": "Missing username or password"}), 400
@@ -83,11 +78,11 @@ def register():
         return jsonify({"message": "User registered successfully"}), 201
         
     except sqlite3.IntegrityError:
-        # This handles the case if two clients try to register the same UNIQUE username concurrently
-        return jsonify({"error": "Username already exists (Integrity Error)"}), 409
+        return jsonify({"error": "(Integrity Error)"}), 409
     
     except Exception as e:
         print(f"Registration failed: {e}")
+
         return jsonify({"error": "An unexpected error occurred"}), 500
         
     finally:
@@ -96,5 +91,4 @@ def register():
     
 if __name__ == "__main__":
     init_db()
-    # It's better to use 0.0.0.0 if running in a container, but 127.0.0.1 is fine for local testing
     app.run(debug=True)

@@ -5,43 +5,78 @@ import time
 API_URL = "http://127.0.0.1:5000"
 logged_in = False
 
-def register(username, password):
-    print(f"\nAttempting to register user '{username}'...")
+def send_post_request(json_data: json, url_string: str):
+    """
+    Docstring for send_post_request
+    
+    :param json_data: Data to send to the server
+    :type json_data: json
+    :param url_string: url string example: signup, do not add / or anything before that
+    :type url_string: str
+    """
+
+
+    print(f"Sending a request to {API_URL}/{url_string}")
     try:
-        response = requests.post(f"{API_URL}/register", json={
-            "username": username,
-            "password": password,
-        })
-        response.raise_for_status() # Raise an exception for 4xx or 5xx errors
+        response = requests.post(f"{API_URL}/{url_string}", json=json_data)
+        response.raise_for_status()
+
         return response.json(), response.status_code
+    
     except requests.exceptions.HTTPError as e:
-        error_msg = e.response.json().get('error', 'Unknown error')
-        print(f"Registration failed (Status {e.response.status_code}): {error_msg}")
-        return None, e.response.status_code
+        error_msg = e.response.json().get('error')
+        print(f"Failed to send requests to server. (Status {e.response.status_code}): {error_msg}")
+
+        return None, response.status_code
+    
     except requests.exceptions.ConnectionError:
-        print("ERROR: Could not connect to the Flask server. Is app.py running?")
+        print("Could not connect to the server...")
+
         return None, 0
-
-def check_username_exists(username):
-    try:
-        response = requests.post(f"{API_URL}/check_username", json={
-            "username": username,
-        })
         
-        # Check if the response was successful
-        if response.status_code == 200:
-            # FIX: Extract the boolean value 'exists' from the server's JSON response
-            return response.json().get("exists", False)
-        
-        # Handle non-200 status codes (e.g., 400 if no username was sent)
-        print(f"Server check failed (Status {response.status_code}): {response.json().get('error', 'Unknown error')}")
-        return False
 
-    except requests.exceptions.ConnectionError:
-        print("ERROR: Could not connect to the Flask server. Is app.py running?")
-        return True # Return True to prevent registration attempt if server is down
+
+def register(username: str, password: str):
+    """
+    Docstring for register
+    
+    :param username: Username, it has to be unique but this gets checked
+    :type username: str
+    :param password: Just the password to register with, this will be hashed before storing into the server
+    :type password: str
+    """
+    
+    print(f"\nAttempting to register user '{username}'...")
+    
+    json_data = {
+        "username": username,
+        "password": password,
+    }
+
+    return send_post_request(json_data=json_data, url_string="register")
+
+def check_username_exists(username: str):
+    """
+    Docstring for check_username_exists
+    
+    :param username: Username to check with the server if it exists
+    :type username: str
+    """
+
+    print("Checking if the username exists...")
+
+    json_data = {
+        "username": username,
+    }
+
+    response = send_post_request(json_data=json_data, url_string="check_username")
+
+    if response[1] == 200:
+        return response[0]["exists"]
+    
 
 def main():
+    
     if logged_in == False:
         print("Looks like you are not logged in. Make an account!")
         
