@@ -1,9 +1,24 @@
 import requests
-import json
-import time
+import json, os
+import getpass, questionary
 
 API_URL = "http://127.0.0.1:5000"
+USER_LOGIN_DATA_FILE = ".login_data.json"
 logged_in = False
+
+def auto_login_check():
+    """
+    """
+    
+    print("Checking if login json data exists...")
+
+    if os.path.exists(USER_LOGIN_DATA_FILE):
+        try:
+            with open(USER_LOGIN_DATA_FILE)
+        login()
+        
+    
+
 
 def send_post_request(json_data: json, url_string: str):
     """
@@ -36,24 +51,103 @@ def send_post_request(json_data: json, url_string: str):
         
 
 
-def register(username: str, password: str):
+def register():
     """
     Docstring for register
-    
-    :param username: Username, it has to be unique but this gets checked
-    :type username: str
-    :param password: Just the password to register with, this will be hashed before storing into the server
-    :type password: str
+    Justs starts a registation form to register
     """
     
-    print(f"\nAttempting to register user '{username}'...")
+    system_username = getpass.getuser()
+    
+    while True:
+        username = input("Please enter a username: ")
+            
+        if username == "" or username.startswith(" "):
+            print("Invalid username.")
+            return
+            
+        if not check_username_exists(username):
+            print("Username does not exist! Lucky!")
+            break
+        else:
+            print("Username exists... ")                
+    
+    while True:
+        password = getpass.getpass("Enter your password: ")
+        password_two = getpass.getpass("Re enter your password: ")
+        
+        if password == password_two:
+            break
+        else:
+            print("Passwords do not match.")
+            
+    
+    print(f"\nAttempting to register {username}...")
     
     json_data = {
         "username": username,
         "password": password,
     }
 
-    return send_post_request(json_data=json_data, url_string="register")
+    response = send_post_request(json_data=json_data, url_string="register")
+    
+    if response[1] == 201:
+        print("Registration Successful!")
+    elif response[1] != 0:
+        print("Registration successful")    
+    
+def login(json_data):
+    print("Attempting to login...")
+    
+    if json_data is None:
+    
+        while True:
+            username = input("Enter your username: ")
+
+            if username == "" or username.startswith(" "):
+                print("Please enter a valid username.")
+                return
+            
+            if not check_username_exists(username=username):
+                print("User does not exist...")
+                return
+            
+            break    
+        
+        password = getpass.getpass("Enter your password: ")
+        
+        
+        json_data = {
+            "username": username,
+            "password": password,
+        }
+        
+        
+    response = send_post_request(json_data=json_data, url_string="login")
+    
+    if response[1] == 200:
+        print("Logged in successfully!")
+        
+        # Save username and password to json
+        if questionary.confirm("Would you like to save login information to a json file? It will make logging in quicker next time.", default=True).ask():
+            try:
+                with open(USER_LOGIN_DATA_FILE, "w") as file:
+                    json.dump(json_data, file, indent=4)
+            except IOError as e:
+                print(f"An error occured while trying write to file. {e}")
+                
+        
+    elif response != 0:
+        print(response[0])
+        
+    
+        
+        
+        
+            
+    
+        
+    
 
 def check_username_exists(username: str):
     """
@@ -73,49 +167,18 @@ def check_username_exists(username: str):
 
     if response[1] == 200:
         return response[0]["exists"]
+    else:
+        print(response)
+        exit()
     
+
 
 def main():
     
     if logged_in == False:
         print("Looks like you are not logged in. Make an account!")
         
-        username = ""
-        password = ""
-        
-        # --- Username Input Loop ---
-        while True:
-            # Get username and keep reasking for a username if its already used
-            username = input("Enter your username: ")
-            
-            if check_username_exists(username=username):
-                print("That username already exists! Please try a different one.")
-                # FIX: Loop continues back to the start of the while loop
-                continue 
-            else:
-                break # Exit the username loop if the username is available
-            
-        # --- Password Input Loop ---
-        while True:
-            # Check for a password, keep reasking if it got the password again prompt wrong
-            password = input("Enter a password: ")
-            chck_password = input("Input the password again: ")
-            
-            if chck_password != password:
-                print("Passwords don't match... Please try again.")
-                # FIX: Loop continues back to the start of the while loop
-                continue 
-
-            break # Exit the password loop if passwords match
-        
-        # --- Registration ---
-        response_data, status_code = register(username=username, password=password)
-        
-        if status_code == 201:
-            print("🎉 Registration successful!")
-        elif status_code != 0:
-            print("Registration failed.")
-     
+        login()
 
 if __name__ == "__main__": 
     main()

@@ -6,13 +6,12 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 # Ensure the path is correct
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATABASE = os.path.join(BASE_DIR, "users.db") 
+DATABASE = os.path.join(BASE_DIR, "data.db") 
 
 def init_db():
     try:
         conn = sqlite3.connect(DATABASE)
         cur = conn.cursor()
-        # Removed the 'email' column to match your latest structure
         cur.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -20,6 +19,7 @@ def init_db():
                 password TEXT NOT NULL
             )
         """)
+        
         conn.commit()
     finally:
         if conn:
@@ -28,10 +28,8 @@ def init_db():
 def get_db():
     return sqlite3.connect(DATABASE)
 
-# Endpoint to check if a username is already taken
 @app.route("/check_username", methods=["POST"])
 def check_username():
-    # Use request.json for simplicity
     data = request.json 
     username = data.get("username")
     
@@ -54,6 +52,47 @@ def check_username():
     finally:
         if conn:
             conn.close()
+            
+@app.route("/login", methods=["POST"])
+def login():
+    data = request.get_json()
+    
+    username = data.get("username")
+    password = data.get("password")
+   
+    if not username or not password:
+        return jsonify({"error": "Missing username or password"}), 400
+        
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        
+        cur.execute("SELECT password FROM users WHERE username = ?", (username,))    
+        
+        user = cur.fetchone()
+        
+        if user:
+            stored_password_hash = user[0]
+            
+            if check_password_hash(stored_password_hash, password):
+                return jsonify({"message": "Successful Login"
+                                }), 200
+            else:
+                return jsonify({"error": "Invalid username or password"}), 401
+        else:
+            return jsonify({"error": "Invalid username or password"}), 401
+        
+    except Exception as e:
+        print(f"Login failed: {e}")
+        return jsonify({"error": "An unexpected error occurred during login"}), 500
+    
+    finally:
+        if conn:
+            conn.close()
+        
+            
+
+    
 
 @app.route("/register", methods=["POST"])
 def register():
